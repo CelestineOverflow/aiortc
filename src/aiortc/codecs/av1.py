@@ -21,7 +21,7 @@ DEFAULT_BITRATE = 1000000  # 1 Mbps
 MIN_BITRATE = 500000  # 500 kbps
 MAX_BITRATE = 10000000  # 10 Mbps
 
-MAX_FRAME_RATE = 60
+MAX_FRAME_RATE = 30
 PACKET_MAX = 1300
 
 NAL_TYPE_FU_A = 28
@@ -32,7 +32,7 @@ FU_A_HEADER_SIZE = 2
 LENGTH_FIELD_SIZE = 2
 STAP_A_HEADER_SIZE = NAL_HEADER_SIZE + LENGTH_FIELD_SIZE
 
-DESCRIPTOR_T = TypeVar("DESCRIPTOR_T", bound="H264PayloadDescriptor")
+DESCRIPTOR_T = TypeVar("DESCRIPTOR_T", bound="AV1PayloadDescriptor")
 T = TypeVar("T")
 
 
@@ -42,12 +42,12 @@ def pairwise(iterable: Sequence[T]) -> Iterator[tuple[T, T]]:
     return zip(a, b)
 
 
-class H264PayloadDescriptor:
+class AV1PayloadDescriptor:
     def __init__(self, first_fragment: bool) -> None:
         self.first_fragment = first_fragment
 
     def __repr__(self) -> str:
-        return f"H264PayloadDescriptor(FF={self.first_fragment})"
+        return f"AV1PayloadDescriptor(FF={self.first_fragment})"
 
     @classmethod
     def parse(cls: Type[DESCRIPTOR_T], data: bytes) -> tuple[DESCRIPTOR_T, bytes]:
@@ -104,9 +104,9 @@ class H264PayloadDescriptor:
         return obj, output
 
 
-class H264Decoder(Decoder):
+class AV1Decoder(Decoder):
     def __init__(self) -> None:
-        self.codec = av.CodecContext.create("h264", "r")
+        self.codec = av.CodecContext.create("av1", "r")
 
     def decode(self, encoded_frame: JitterFrame) -> list[Frame]:
         try:
@@ -116,12 +116,12 @@ class H264Decoder(Decoder):
             return cast(list[Frame], self.codec.decode(packet))
         except av.FFmpegError as e:
             logger.warning(
-                "H264Decoder() failed to decode, skipping package: " + str(e)
+                "AV1Decoder() failed to decode, skipping package: " + str(e)
             )
             return []
 
 
-class H264Encoder(Encoder):
+class AV1Encoder(Encoder):
     def __init__(self) -> None:
         self.buffer_data = b""
         self.buffer_pts: Optional[int] = None
@@ -203,7 +203,7 @@ class H264Encoder(Encoder):
 
     @staticmethod
     def _split_bitstream(buf: bytes) -> Iterator[bytes]:
-        # Translated from: https://github.com/aizvorski/h264bitstream/blob/master/h264_nal.c#L134
+
         i = 0
         while True:
             # Find the start of the NAL unit.
@@ -267,7 +267,7 @@ class H264Encoder(Encoder):
             frame.pict_type = av.video.frame.PictureType.NONE
 
         if self.codec is None:
-            self.codec = av.CodecContext.create("libx264", "w")
+            self.codec = av.CodecContext.create("libaom-av1", "w")
             self.codec.width = frame.width
             self.codec.height = frame.height
             self.codec.bit_rate = self.target_bitrate
@@ -314,6 +314,6 @@ class H264Encoder(Encoder):
         self.__target_bitrate = bitrate
 
 
-def h264_depayload(payload: bytes) -> bytes:
-    descriptor, data = H264PayloadDescriptor.parse(payload)
+def AV1_depayload(payload: bytes) -> bytes:
+    descriptor, data = AV1PayloadDescriptor.parse(payload)
     return data
